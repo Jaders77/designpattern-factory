@@ -27,23 +27,30 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <map>
+#include <vector>
+#include <algorithm>
 
 namespace Base
 {
-	template <typename TypeBaseT>
+	template<typename T>
+	typename T::first_type select1st_factory(const T& aValue)
+	{
+		return aValue.first;
+	}
+
+	template <typename KeyT, typename BaseT, typename CompareT = std::less<KeyT> >
 	class TFactory
 	{
 	public:
-		typedef std::unique_ptr<TypeBaseT> UniquePtr_t;
-		typedef std::shared_ptr<TypeBaseT> SharedPtr_t;
+		typedef std::unique_ptr<BaseT> UniquePtr_t;
+		typedef std::shared_ptr<BaseT> SharedPtr_t;
 
 	private:
 		class FactoryBase
 		{
 		public:
-			typedef std::unique_ptr<FactoryBase> UniquePtr_t;
+			typedef std::unique_ptr<FactoryBase> BaseUniquePtr_t;
 
 		public:
 			FactoryBase(void)
@@ -79,30 +86,35 @@ namespace Base
 		{
 		}
 		template <typename TypeT>
-		bool registerPlugin(const std::string& aName)
+		bool registerPlugin(const KeyT& aName)
 		{
 			mFactoryMap.insert(std::make_pair(aName, std::make_unique<TFactoryInternal<TypeT> >()));
 			return true;
 		}
-		UniquePtr_t makeUniqueNewInstance(const std::string& aName) const
+		UniquePtr_t makeUniqueNewInstance(const KeyT& aName) const
 		{
 			FactoryStringMap_t::const_iterator itFactory = mFactoryMap.find(aName);
 			if (itFactory == mFactoryMap.end())
 				return nullptr;
 			return itFactory->second->makeUniqueNewInstance();
 		}
-		SharedPtr_t makeSharedNewInstance(const std::string& aName) const
+		SharedPtr_t makeSharedNewInstance(const KeyT& aName) const
 		{
 			FactoryStringMap_t::const_iterator itFactory = mFactoryMap.find(aName);
 			if (itFactory == mFactoryMap.end())
 				return nullptr;
 			return itFactory->second->makeSharedNewInstance();
 		}
+		void getKeys(std::vector<KeyT>& aKeysResult) const
+		{
+			aKeysResult.resize(mFactoryMap.size());
+			std::transform(mFactoryMap.begin(), mFactoryMap.end(), aKeysResult.begin(), select1st_factory<FactoryStringMap_t::value_type>);
+		}
 
 	private:
 		TFactory(const TFactory& aCopy);
 		TFactory& operator=(const TFactory& aCopy);
-		typedef std::map<std::string, typename FactoryBase::UniquePtr_t> FactoryStringMap_t;
+		typedef std::map<KeyT, typename FactoryBase::BaseUniquePtr_t, CompareT> FactoryStringMap_t;
 		FactoryStringMap_t mFactoryMap;
 	};
 };
